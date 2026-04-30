@@ -1,0 +1,30 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  api:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+
+  bot:
+    build: .
+    command: python -m src.bot.main
+    env_file:
+      - .env
+    environment:
+      RAG_API_URL: http://api:8000
+    depends_on:
+      - api
+
+volumes:
+  qdrant_data:
+
