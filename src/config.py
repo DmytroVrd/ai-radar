@@ -34,6 +34,7 @@ class Settings:
     fetch_limit_hn: int
     fetch_limit_devto: int
     fetch_limit_arxiv: int
+    fetch_limit_rss: int
     default_top_k: int
     vector_search_k: int
     bm25_search_k: int
@@ -79,6 +80,7 @@ def get_settings() -> Settings:
         fetch_limit_hn=int(os.getenv("FETCH_LIMIT_HN", "30")),
         fetch_limit_devto=int(os.getenv("FETCH_LIMIT_DEVTO", "20")),
         fetch_limit_arxiv=int(os.getenv("FETCH_LIMIT_ARXIV", "20")),
+        fetch_limit_rss=int(os.getenv("FETCH_LIMIT_RSS", "8")),
         default_top_k=int(os.getenv("DEFAULT_TOP_K", "5")),
         vector_search_k=int(os.getenv("VECTOR_SEARCH_K", "10")),
         bm25_search_k=int(os.getenv("BM25_SEARCH_K", "10")),

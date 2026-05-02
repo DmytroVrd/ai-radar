@@ -77,6 +77,7 @@ def infer_embedding_dimensions(
         fetch_limit_hn=0,
         fetch_limit_devto=0,
         fetch_limit_arxiv=0,
+        fetch_limit_rss=0,
         default_top_k=0,
         vector_search_k=0,
         bm25_search_k=0,

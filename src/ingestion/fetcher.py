@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import re
 from datetime import datetime, timezone
+from html import unescape
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
@@ -12,11 +13,45 @@ from bs4 import BeautifulSoup
 from src.config import Settings, get_settings
 from src.models import Article
 
-AI_KEYWORDS = ("ai", "llm", "gpt", "rag", "agent", "ml", "model", "embedding")
+AI_KEYWORDS = (
+    "ai",
+    "artificial intelligence",
+    "llm",
+    "large language model",
+    "gpt",
+    "rag",
+    "retrieval",
+    "agent",
+    "agents",
+    "ml",
+    "machine learning",
+    "model",
+    "models",
+    "embedding",
+    "inference",
+    "fine-tuning",
+    "eval",
+    "open source",
+    "tooling",
+)
+
+DEVTO_TAGS = ("ai", "machinelearning", "llm", "python", "opensource")
+
+RSS_FEEDS = {
+    "huggingface": "https://huggingface.co/blog/feed.xml",
+    "openai": "https://openai.com/news/rss.xml",
+    "google-ai": "https://blog.google/technology/ai/rss/",
+    "simon-willison": "https://simonwillison.net/atom/everything/",
+}
 
 
 def _normalize_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _strip_html(text: str) -> str:
+    soup = BeautifulSoup(unescape(text), "html.parser")
+    return _normalize_whitespace(soup.get_text(" ", strip=True))
 
 
 def _article_key(article: Article) -> str:
@@ -117,14 +152,23 @@ async def fetch_devto_ai(limit: int = 20, settings: Settings | None = None) -> l
         timeout=settings.request_timeout,
         follow_redirects=True,
     ) as client:
-        response = await client.get(
-            "https://dev.to/api/articles",
-            params={"tag": "ai", "per_page": limit},
-        )
-        response.raise_for_status()
-        items = response.json()
+        tasks = [
+            client.get(
+                "https://dev.to/api/articles",
+                params={"tag": tag, "per_page": max(1, limit // len(DEVTO_TAGS))},
+            )
+            for tag in DEVTO_TAGS
+        ]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-    return [
+    items = []
+    for response in responses:
+        if isinstance(response, Exception):
+            continue
+        response.raise_for_status()
+        items.extend(response.json())
+
+    articles = [
         Article(
             url=item["url"],
             title=item["title"],
@@ -136,12 +180,17 @@ async def fetch_devto_ai(limit: int = 20, settings: Settings | None = None) -> l
         )
         for item in items
     ]
+    return deduplicate_articles(articles)[:limit]
 
 
 async def fetch_arxiv_ai(limit: int = 20, settings: Settings | None = None) -> list[Article]:
     settings = settings or get_settings()
     params = {
-        "search_query": 'all:"retrieval augmented generation" OR all:rag OR all:"large language model" OR all:agent',
+        "search_query": (
+            'all:"retrieval augmented generation" OR all:rag OR all:"large language model" '
+            'OR all:agent OR all:"open source" OR all:inference OR all:embedding '
+            'OR all:"AI tooling" OR all:"machine learning systems"'
+        ),
         "sortBy": "submittedDate",
         "sortOrder": "descending",
         "max_results": limit,
@@ -177,12 +226,108 @@ async def fetch_arxiv_ai(limit: int = 20, settings: Settings | None = None) -> l
     return articles
 
 
+def _xml_text(element: ET.Element | None) -> str:
+    return _normalize_whitespace(element.text or "") if element is not None else ""
+
+
+def _first_child(element: ET.Element, names: tuple[str, ...]) -> ET.Element | None:
+    for child in element.iter():
+        local_name = child.tag.rsplit("}", 1)[-1].lower()
+        if local_name in names:
+            return child
+    return None
+
+
+def _entry_link(entry: ET.Element) -> str:
+    for link in entry.iter():
+        local_name = link.tag.rsplit("}", 1)[-1].lower()
+        if local_name != "link":
+            continue
+        href = link.attrib.get("href")
+        rel = link.attrib.get("rel", "alternate")
+        if href and rel == "alternate":
+            return href.strip()
+        if link.text:
+            return link.text.strip()
+    return ""
+
+
+async def fetch_rss_feed(
+    source: str,
+    url: str,
+    limit: int,
+    settings: Settings | None = None,
+) -> list[Article]:
+    settings = settings or get_settings()
+    async with httpx.AsyncClient(
+        timeout=settings.request_timeout,
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+
+    root = ET.fromstring(response.text)
+    entries = [
+        element
+        for element in root.iter()
+        if element.tag.rsplit("}", 1)[-1].lower() in {"item", "entry"}
+    ]
+
+    articles: list[Article] = []
+    for entry in entries:
+        title = _xml_text(_first_child(entry, ("title",)))
+        raw_summary = _xml_text(_first_child(entry, ("encoded", "content", "summary", "description")))
+        summary = _strip_html(raw_summary)
+        content = summary or title
+        if not title or not _story_matches_ai(title, content):
+            continue
+
+        articles.append(
+            Article(
+                url=_entry_link(entry),
+                title=title,
+                content=content,
+                source=source,
+                published=_xml_text(_first_child(entry, ("published", "updated", "pubdate"))),
+                tags=["AI", "LLM", "AI engineering", source],
+                summary=summary[:400],
+            )
+        )
+        if len(articles) >= limit:
+            break
+    return articles
+
+
+async def fetch_ai_engineering_feeds(settings: Settings | None = None) -> list[Article]:
+    settings = settings or get_settings()
+    batches = await asyncio.gather(
+        *[
+            fetch_rss_feed(
+                source=source,
+                url=url,
+                limit=settings.fetch_limit_rss,
+                settings=settings,
+            )
+            for source, url in RSS_FEEDS.items()
+        ],
+        return_exceptions=True,
+    )
+
+    articles: list[Article] = []
+    for batch in batches:
+        if isinstance(batch, Exception):
+            continue
+        articles.extend(batch)
+    return deduplicate_articles(articles)
+
+
 async def fetch_all_sources(settings: Settings | None = None) -> list[Article]:
     settings = settings or get_settings()
     batches = await asyncio.gather(
         fetch_hackernews_ai(limit=settings.fetch_limit_hn, settings=settings),
         fetch_devto_ai(limit=settings.fetch_limit_devto, settings=settings),
         fetch_arxiv_ai(limit=settings.fetch_limit_arxiv, settings=settings),
+        fetch_ai_engineering_feeds(settings=settings),
     )
     articles = [article for batch in batches for article in batch if article.content]
     return deduplicate_articles(articles)
