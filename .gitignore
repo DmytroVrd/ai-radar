@@ -2,10 +2,10 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.idea/
 .mypy_cache/
 .env
 qdrant_data/
 dist/
 build/
 *.pyc
-

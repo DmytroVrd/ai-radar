@@ -1,120 +1,227 @@
 # AI Radar
 
-AI Radar is a RAG-powered research assistant that continuously ingests AI articles from Hacker News, dev.to, and arXiv, indexes them into Qdrant, and answers questions with explicit sources.
+![CI](https://github.com/DmytroVrd/ai-radar/actions/workflows/ci.yml/badge.svg)
 
-## Why this project stands out
+AI Radar is a RAG-powered research assistant for recent AI engineering content: RAG, LLM apps, agents, open-source models, model tooling, and applied ML infrastructure.
 
-- Automatic ingestion instead of manual PDF upload.
-- Hybrid retrieval: dense vector search in Qdrant plus BM25 keyword search.
-- Cross-encoder reranking to improve final context quality.
-- RAGAS evaluation script so answer quality is measured, not guessed.
-- FastAPI backend plus aiogram Telegram bot for a real user-facing interface.
+Instead of uploading documents manually, AI Radar continuously ingests fresh AI content from public sources, indexes it into Qdrant, and answers questions with source links.
+
+## Current Version
+
+`v0.2.0` expands the MVP into a broader AI engineering radar:
+
+- Live ingestion from Hacker News, dev.to, arXiv, Hugging Face, OpenAI, Google AI, and Simon Willison.
+- Qdrant-backed vector index with OpenRouter embeddings.
+- Hybrid retrieval using BM25 plus dense vector search.
+- Reciprocal Rank Fusion and cross-encoder reranking.
+- FastAPI API with Swagger docs and a lightweight landing page.
+- Docker Compose setup for Qdrant.
+- Test and lint workflow in GitHub Actions.
+
+## Why This Project Exists
+
+AI engineering changes too quickly to follow by manually checking blogs, papers, and discussion sites. AI Radar turns recent AI engineering content into a searchable research layer.
+
+It is designed for questions like:
+
+- What changed in RAG recently?
+- Which sources discuss hybrid search or reranking?
+- What new open-source model or AI tooling updates appeared recently?
+- What are recent trends in agentic AI tooling?
+- Which recent papers mention LLM inference or retrieval infrastructure?
+
+## What It Demonstrates
+
+This project is intentionally more than a basic "upload a PDF and ask questions" tutorial.
+
+- Automatic ingestion from multiple live sources.
+- Hybrid retrieval with keyword and semantic search.
+- Cross-encoder reranking for better context selection.
+- Source-grounded answer generation.
+- Evaluation-ready structure with RAGAS.
+- Practical API architecture with FastAPI, Qdrant, Docker, and CI.
+
+## Sources
+
+AI Radar currently indexes:
+
+- Hacker News top stories filtered for AI engineering topics.
+- dev.to articles from AI, ML, LLM, Python, and open-source tags.
+- arXiv papers about RAG, LLMs, agents, embeddings, inference, and ML systems.
+- Hugging Face Blog.
+- OpenAI News RSS.
+- Google AI Blog RSS.
+- Simon Willison's feed for LLM tooling and applied AI notes.
+
+All added sources are free public feeds or APIs. No paid news API is required.
 
 ## Architecture
 
 ```text
-Telegram Bot (aiogram)
-        |
-        v
-FastAPI  /query /index /stats /health
-        |
-        +--> Ingestion Scheduler
-        |
-        +--> RAG Pipeline
-               |- BM25 retrieval over indexed chunks
-               |- Qdrant dense vector search
-               |- Reciprocal rank fusion
-               |- Cross-encoder reranker
-               |- OpenRouter-backed answer synthesis with citations
+                    /ask
+Telegram Bot  ---------------->  FastAPI
+                                  /query
+                                  /index
+                                  /stats
+                                  /health
+                                     |
+                 +-------------------+-------------------+
+                 |                   |                   |
+          Ingestion Layer      Retrieval Pipeline       Qdrant
+          HN/dev.to/arXiv      BM25 + Vector Search     Vector DB
+          AI RSS feeds         RRF + Reranker           Chunk storage
 ```
 
-## Project layout
+## Retrieval Flow
+
+```text
+Question
+   |
+   +--> BM25 keyword retrieval
+   |
+   +--> Qdrant vector retrieval
+   |
+   +--> Reciprocal Rank Fusion
+   |
+   +--> Cross-encoder reranking
+   |
+   +--> LLM answer with source citations
+```
+
+## Tech Stack
+
+- Python 3.11
+- FastAPI
+- Qdrant
+- LangChain document primitives
+- OpenRouter for chat and embedding APIs
+- rank-bm25
+- sentence-transformers cross-encoder reranker
+- aiogram Telegram bot
+- RAGAS evaluation scaffold
+- Docker Compose
+- pytest and ruff
+
+## Project Layout
 
 ```text
 src/
-  api/
-  bot/
-  ingestion/
-  retrieval/
-evals/
-tests/
+  api/          FastAPI app and schemas
+  bot/          Telegram bot handlers
+  ingestion/    source fetchers, scheduler, Qdrant indexing
+  retrieval/    hybrid search, reranking, answer pipeline
+evals/          RAGAS evaluation entrypoint
+tests/          unit tests
 ```
 
-## Quick start
+## Quick Start
 
-1. Create a virtual environment and install dependencies.
+Create a virtual environment and install dependencies.
 
-```bash
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-2. Copy the environment template and fill in the keys.
+Create `.env`.
 
-```bash
+```powershell
 copy .env.example .env
 ```
 
-3. Fill in the minimum required variables in `.env`.
+Minimum required `.env` values:
 
 ```env
 OPENROUTER_API_KEY=sk-or-...
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 CHAT_MODEL=openrouter/free
 EMBEDDING_MODEL=nvidia/llama-nemotron-embed-vl-1b-v2:free
+QDRANT_URL=http://localhost:6333
 ```
 
-4. Start Qdrant and the API.
+Start Qdrant.
 
-```bash
+```powershell
 docker compose up qdrant -d
+```
+
+Start the API.
+
+```powershell
 python main.py
 ```
 
-5. Index fresh articles.
+Open:
 
-```bash
-curl -X POST http://localhost:8000/index
+- Landing page: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+## Basic Demo Flow
+
+Check that the API can reach Qdrant.
+
+```powershell
+Invoke-RestMethod http://localhost:8000/health
 ```
 
-6. Ask a question.
+Index fresh content.
 
-```bash
-curl -X POST http://localhost:8000/query ^
-  -H "Content-Type: application/json" ^
-  -d "{\"question\":\"What changed in RAG over the last month?\",\"top_k\":5}"
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8000/index
 ```
 
-7. Run the Telegram bot.
+Ask a question.
 
-```bash
-python -m src.bot.main
+```powershell
+Invoke-RestMethod `
+  -Method Post http://localhost:8000/query `
+  -ContentType "application/json" `
+  -Body '{"question":"What changed in RAG recently?","top_k":5}'
 ```
 
-## Example prompts
+Check index stats.
 
-- `What changed in RAG over the last month?`
-- `Which arXiv papers mention retrieval latency tradeoffs?`
-- `Summarize recent agent and tool-use patterns in LLM apps.`
+```powershell
+Invoke-RestMethod http://localhost:8000/stats
+```
+
+## API Endpoints
+
+- `GET /` returns a lightweight project landing page.
+- `GET /health` checks whether the API and Qdrant are reachable.
+- `GET /stats` returns Qdrant collection stats.
+- `POST /index` fetches and indexes fresh AI engineering content.
+- `POST /query` runs hybrid retrieval and generates a sourced answer.
+
+Example query body:
+
+```json
+{
+  "question": "Which recent sources discuss LLM inference or model infrastructure?",
+  "top_k": 5
+}
+```
 
 ## Evaluation
 
-`evals/run_evals.py` runs a lightweight RAGAS evaluation over sample questions and prints metric scores for:
+`evals/run_evals.py` is prepared for RAGAS evaluation with:
 
-- `faithfulness`
-- `answer_relevancy`
-- `context_recall`
+- faithfulness
+- answer relevancy
+- context recall
 
-Those results are meant for the README, demos, and resume bullets once you have a few stable evaluation runs.
+The next milestone is to expand the evaluation set to 8-10 stable test questions and publish measured scores in this README.
 
-## API endpoints
+## Roadmap
 
-- `POST /query`
-- `POST /index`
-- `GET /stats`
-- `GET /health`
+- `v0.1.0`: working MVP with ingestion, indexing, hybrid retrieval, reranking, and API query flow.
+- `v0.2.0`: retrieval quality improvements, stronger source filtering, and better date/topic handling.
+- `v0.3.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
+- `v0.4.0`: RAGAS metrics, screenshots, README polish, and reproducible demo script.
+- `v1.0.0`: public-ready showcase with stable deployment and documented evaluation results.
 
-## Resume-friendly summary
+## CV Summary
 
-Built a live RAG pipeline over AI articles from Hacker News, dev.to, and arXiv using FastAPI, Qdrant, LangChain, aiogram, cross-encoder reranking, RAGAS evaluation, and OpenRouter as the model gateway.
+Built AI Radar, a RAG-powered research assistant over live AI engineering content. The system ingests Hacker News, dev.to, arXiv, and curated AI engineering feeds, indexes them in Qdrant, and answers questions using hybrid BM25 + vector retrieval, Reciprocal Rank Fusion, cross-encoder reranking, and OpenRouter-backed generation with sources.
