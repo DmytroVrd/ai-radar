@@ -8,7 +8,7 @@ Instead of uploading documents manually, AI Radar continuously ingests fresh AI 
 
 ## Current Version
 
-`v1.0.0` is the portfolio-ready release of AI Radar:
+`v1.0.0` is the first stable release of AI Radar:
 
 - Live ingestion from Hacker News, dev.to, arXiv, Hugging Face, OpenAI, Google AI, and Simon Willison.
 - Qdrant-backed vector index with OpenRouter embeddings.
@@ -290,7 +290,7 @@ python evals\run_evals.py
 - `v0.2.0`: broader AI engineering sources, free RSS ingestion, landing page, and stronger project documentation.
 - `v0.3.0`: screenshots, 10-question RAGAS evaluation, measured metrics, and README demo polish.
 - `v0.4.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
-- `v1.0.0`: portfolio-ready showcase with screenshots, measured RAGAS results, Telegram bot UX, and admin-only indexing.
+- `v1.0.0`: stable project release with screenshots, measured RAGAS results, Telegram bot UX, and admin-only indexing.
 
 ## CV Summary
 
