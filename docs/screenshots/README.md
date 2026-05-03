@@ -9,6 +9,9 @@ Recommended files:
 - `stats.png`: `GET /stats` showing indexed documents.
 - `index.png`: successful `POST /index` response.
 - `health.png`: successful `GET /health` response.
+- `bot-start.png`: Telegram `/start` command showing available bot commands.
+- `ask.png`: Telegram `/ask` command with a sourced answer.
+- `index-tg.png`: Telegram admin `/index` command with a successful indexing response.
 
 Capture tips:
 
