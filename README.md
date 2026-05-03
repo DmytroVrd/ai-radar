@@ -8,13 +8,14 @@ Instead of uploading documents manually, AI Radar continuously ingests fresh AI 
 
 ## Current Version
 
-`v0.2.0` expands the MVP into a broader AI engineering radar:
+`v0.3.0` adds screenshots and measured RAGAS evaluation results:
 
 - Live ingestion from Hacker News, dev.to, arXiv, Hugging Face, OpenAI, Google AI, and Simon Willison.
 - Qdrant-backed vector index with OpenRouter embeddings.
 - Hybrid retrieval using BM25 plus dense vector search.
 - Reciprocal Rank Fusion and cross-encoder reranking.
 - FastAPI API with Swagger docs and a lightweight landing page.
+- RAGAS evaluation over 10 AI engineering questions.
 - Docker Compose setup for Qdrant.
 - Test and lint workflow in GitHub Actions.
 
@@ -38,8 +39,22 @@ This project is intentionally more than a basic "upload a PDF and ask questions"
 - Hybrid retrieval with keyword and semantic search.
 - Cross-encoder reranking for better context selection.
 - Source-grounded answer generation.
-- Evaluation-ready structure with RAGAS.
+- RAGAS evaluation over a 10-question AI engineering test set.
 - Practical API architecture with FastAPI, Qdrant, Docker, and CI.
+
+## Screenshots
+
+### Landing Page
+
+![AI Radar landing page](docs/screenshots/landing-page.png)
+
+### Query Demo
+
+![AI Radar query response](docs/screenshots/query.png)
+
+### Indexed Collection Stats
+
+![AI Radar stats response](docs/screenshots/stats.png)
 
 ## Sources
 
@@ -206,20 +221,44 @@ Example query body:
 
 ## Evaluation
 
-`evals/run_evals.py` is prepared for RAGAS evaluation with:
+`evals/run_evals.py` evaluates the RAG pipeline on 10 AI engineering questions with:
 
 - faithfulness
 - answer relevancy
 - context recall
 
-The next milestone is to expand the evaluation set to 8-10 stable test questions and publish measured scores in this README.
+Latest run:
+
+| Metric | Score |
+| --- | ---: |
+| Faithfulness | 0.5092 |
+| Answer relevancy | 0.5118 |
+| Context recall | 0.0000 |
+
+Evaluation notes:
+
+- Dataset: 10 AI engineering questions.
+- Index state: local Qdrant collection at evaluation time.
+- The low context recall score highlights the next improvement target: better references, stricter source filtering, and stronger retrieval evaluation data.
+
+Run a quick smoke test first:
+
+```powershell
+python evals\run_evals.py --limit 2
+```
+
+Run the full evaluation:
+
+```powershell
+python evals\run_evals.py
+```
 
 ## Roadmap
 
 - `v0.1.0`: working MVP with ingestion, indexing, hybrid retrieval, reranking, and API query flow.
-- `v0.2.0`: retrieval quality improvements, stronger source filtering, and better date/topic handling.
-- `v0.3.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
-- `v0.4.0`: RAGAS metrics, screenshots, README polish, and reproducible demo script.
+- `v0.2.0`: broader AI engineering sources, free RSS ingestion, landing page, and stronger project documentation.
+- `v0.3.0`: screenshots, 10-question RAGAS evaluation, measured metrics, and README demo polish.
+- `v0.4.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
 - `v1.0.0`: public-ready showcase with stable deployment and documented evaluation results.
 
 ## CV Summary
