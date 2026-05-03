@@ -23,6 +23,21 @@ def _is_admin(message: Message, settings: Settings) -> bool:
     return message.from_user.id in settings.telegram_admin_ids
 
 
+def _describe_http_error(exc: httpx.HTTPError) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        response = exc.response
+        try:
+            detail = response.json().get("detail")
+        except ValueError:
+            detail = response.text
+        return f"{response.status_code}: {detail or response.reason_phrase}"
+    if isinstance(exc, httpx.ConnectError):
+        return "API is not reachable. Start FastAPI first with python main.py."
+    if isinstance(exc, httpx.ReadTimeout):
+        return "Request timed out. Indexing can take a few minutes; try again or increase REQUEST_TIMEOUT."
+    return str(exc) or exc.__class__.__name__
+
+
 def build_router(settings: Settings) -> Router:
     router = Router()
 
@@ -56,7 +71,7 @@ def build_router(settings: Settings) -> Router:
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPError as exc:
-            await message.answer(f"Request failed: {exc}")
+            await message.answer(f"Request failed: {_describe_http_error(exc)}")
             return
 
         sources = _render_sources(data.get("sources", []))
@@ -73,12 +88,13 @@ def build_router(settings: Settings) -> Router:
 
         await message.answer("Indexing the latest articles...")
         try:
-            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            index_timeout = max(settings.request_timeout, 180)
+            async with httpx.AsyncClient(timeout=index_timeout) as client:
                 response = await client.post(f"{settings.rag_api_url.rstrip('/')}/index")
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPError as exc:
-            await message.answer(f"Indexing failed: {exc}")
+            await message.answer(f"Indexing failed: {_describe_http_error(exc)}")
             return
 
         await message.answer(
@@ -93,7 +109,7 @@ def build_router(settings: Settings) -> Router:
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPError as exc:
-            await message.answer(f"Stats request failed: {exc}")
+            await message.answer(f"Stats request failed: {_describe_http_error(exc)}")
             return
 
         await message.answer(
