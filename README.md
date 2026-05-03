@@ -8,13 +8,14 @@ Instead of uploading documents manually, AI Radar continuously ingests fresh AI 
 
 ## Current Version
 
-`v0.3.0` adds screenshots and measured RAGAS evaluation results:
+`v0.4.0` adds Telegram bot hardening on top of the measured RAGAS evaluation release:
 
 - Live ingestion from Hacker News, dev.to, arXiv, Hugging Face, OpenAI, Google AI, and Simon Willison.
 - Qdrant-backed vector index with OpenRouter embeddings.
 - Hybrid retrieval using BM25 plus dense vector search.
 - Reciprocal Rank Fusion and cross-encoder reranking.
 - FastAPI API with Swagger docs and a lightweight landing page.
+- Telegram bot with admin-only indexing commands.
 - RAGAS evaluation over 10 AI engineering questions.
 - Docker Compose setup for Qdrant.
 - Test and lint workflow in GitHub Actions.
@@ -153,6 +154,8 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 CHAT_MODEL=openrouter/free
 EMBEDDING_MODEL=nvidia/llama-nemotron-embed-vl-1b-v2:free
 QDRANT_URL=http://localhost:6333
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ADMIN_IDS=123456789
 ```
 
 Start Qdrant.
@@ -201,6 +204,22 @@ Check index stats.
 ```powershell
 Invoke-RestMethod http://localhost:8000/stats
 ```
+
+## Telegram Bot
+
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ADMIN_IDS` in `.env`, then run:
+
+```powershell
+python -m src.bot.main
+```
+
+Bot commands:
+
+- `/ask <question>` asks questions over the indexed AI engineering content.
+- `/stats` shows Qdrant collection stats.
+- `/index` fetches and indexes fresh content, and is restricted to IDs from `TELEGRAM_ADMIN_IDS`.
+
+`/ask` remains open because it is the normal user-facing flow. `/index` is admin-only because it triggers ingestion, embedding calls, and writes to Qdrant.
 
 ## API Endpoints
 
