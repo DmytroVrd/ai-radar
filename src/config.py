@@ -16,6 +16,17 @@ def _bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _int_set_env(name: str) -> frozenset[int]:
+    raw = os.getenv(name, "")
+    values: set[int] = set()
+    for item in raw.replace(";", ",").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        values.add(int(item))
+    return frozenset(values)
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     openrouter_api_key: str | None
@@ -23,6 +34,7 @@ class Settings:
     openrouter_site_url: str | None
     openrouter_app_name: str | None
     telegram_bot_token: str | None
+    telegram_admin_ids: frozenset[int]
     qdrant_url: str
     qdrant_collection: str
     chat_model: str
@@ -66,6 +78,7 @@ def get_settings() -> Settings:
         openrouter_site_url=os.getenv("OPENROUTER_SITE_URL", "http://localhost"),
         openrouter_app_name=os.getenv("OPENROUTER_APP_NAME", "AI Radar"),
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
+        telegram_admin_ids=_int_set_env("TELEGRAM_ADMIN_IDS"),
         qdrant_url=os.getenv("QDRANT_URL", "http://localhost:6333"),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "ai_articles"),
         chat_model=os.getenv("CHAT_MODEL", "openrouter/free"),

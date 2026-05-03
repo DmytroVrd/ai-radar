@@ -17,15 +17,25 @@ def _render_sources(sources: list[dict[str, str]]) -> str:
     return "\n\n".join(lines)
 
 
+def _is_admin(message: Message, settings: Settings) -> bool:
+    if not message.from_user:
+        return False
+    return message.from_user.id in settings.telegram_admin_ids
+
+
 def build_router(settings: Settings) -> Router:
     router = Router()
 
     @router.message(CommandStart())
     async def start_handler(message: Message) -> None:
+        admin_hint = ""
+        if _is_admin(message, settings):
+            admin_hint = "\nAdmin: use /index to pull fresh content."
         await message.answer(
             "AI Radar is ready.\n"
             "Use /ask <question> to query indexed articles.\n"
-            "Use /index to pull fresh content."
+            "Use /stats to inspect the current index."
+            f"{admin_hint}"
         )
 
     @router.message(Command("ask"))
@@ -54,6 +64,13 @@ def build_router(settings: Settings) -> Router:
 
     @router.message(Command("index"))
     async def index_handler(message: Message) -> None:
+        if not settings.telegram_admin_ids:
+            await message.answer("Admin commands are disabled. Set TELEGRAM_ADMIN_IDS first.")
+            return
+        if not _is_admin(message, settings):
+            await message.answer("This command is admin-only.")
+            return
+
         await message.answer("Indexing the latest articles...")
         try:
             async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
@@ -86,4 +103,3 @@ def build_router(settings: Settings) -> Router:
         )
 
     return router
-
