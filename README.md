@@ -8,7 +8,7 @@ Instead of uploading documents manually, AI Radar continuously ingests fresh AI 
 
 ## Current Version
 
-`v0.4.0` adds Telegram bot hardening on top of the measured RAGAS evaluation release:
+`v1.0.0` is the portfolio-ready release of AI Radar:
 
 - Live ingestion from Hacker News, dev.to, arXiv, Hugging Face, OpenAI, Google AI, and Simon Willison.
 - Qdrant-backed vector index with OpenRouter embeddings.
@@ -56,6 +56,18 @@ This project is intentionally more than a basic "upload a PDF and ask questions"
 ### Indexed Collection Stats
 
 ![AI Radar stats response](docs/screenshots/stats.png)
+
+### Telegram Bot Start
+
+![AI Radar Telegram bot start](docs/screenshots/bot-start.png)
+
+### Telegram Query Demo
+
+![AI Radar Telegram query response](docs/screenshots/ask.png)
+
+### Telegram Admin Indexing
+
+![AI Radar Telegram admin indexing](docs/screenshots/index-tg.png)
 
 ## Sources
 
@@ -278,8 +290,8 @@ python evals\run_evals.py
 - `v0.2.0`: broader AI engineering sources, free RSS ingestion, landing page, and stronger project documentation.
 - `v0.3.0`: screenshots, 10-question RAGAS evaluation, measured metrics, and README demo polish.
 - `v0.4.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
-- `v1.0.0`: public-ready showcase with stable deployment and documented evaluation results.
+- `v1.0.0`: portfolio-ready showcase with screenshots, measured RAGAS results, Telegram bot UX, and admin-only indexing.
 
 ## CV Summary
 
-Built AI Radar, a RAG-powered research assistant over live AI engineering content. The system ingests Hacker News, dev.to, arXiv, and curated AI engineering feeds, indexes them in Qdrant, and answers questions using hybrid BM25 + vector retrieval, Reciprocal Rank Fusion, cross-encoder reranking, and OpenRouter-backed generation with sources.
+Built AI Radar, a RAG-powered research assistant over live AI engineering content. The system ingests Hacker News, dev.to, arXiv, and curated AI engineering feeds, indexes them in Qdrant, and answers questions through FastAPI or Telegram using hybrid BM25 + vector retrieval, Reciprocal Rank Fusion, cross-encoder reranking, and OpenRouter-backed generation with sources. Admin-only indexing protects expensive ingestion and embedding operations.
