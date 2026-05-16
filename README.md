@@ -292,6 +292,6 @@ python evals\run_evals.py
 - `v0.4.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
 - `v1.0.0`: stable project release with screenshots, measured RAGAS results, Telegram bot UX, and admin-only indexing.
 
-## CV Summary
+## Project Summary
 
 Built AI Radar, a RAG-powered research assistant over live AI engineering content. The system ingests Hacker News, dev.to, arXiv, and curated AI engineering feeds, indexes them in Qdrant, and answers questions through FastAPI or Telegram using hybrid BM25 + vector retrieval, Reciprocal Rank Fusion, cross-encoder reranking, and OpenRouter-backed generation with sources. Admin-only indexing protects expensive ingestion and embedding operations.
