@@ -72,6 +72,19 @@ def deduplicate_articles(articles: list[Article]) -> list[Article]:
     return deduped
 
 
+def _successful_json_responses(responses: list[object]) -> list[object]:
+    payloads: list[object] = []
+    for response in responses:
+        if isinstance(response, Exception):
+            continue
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            continue
+        payloads.append(response.json())
+    return payloads
+
+
 async def extract_article_content(url: str, client: httpx.AsyncClient) -> str:
     if not url:
         return ""
@@ -162,11 +175,9 @@ async def fetch_devto_ai(limit: int = 20, settings: Settings | None = None) -> l
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
     items = []
-    for response in responses:
-        if isinstance(response, Exception):
-            continue
-        response.raise_for_status()
-        items.extend(response.json())
+    for payload in _successful_json_responses(responses):
+        if isinstance(payload, list):
+            items.extend(payload)
 
     articles = [
         Article(
@@ -328,6 +339,13 @@ async def fetch_all_sources(settings: Settings | None = None) -> list[Article]:
         fetch_devto_ai(limit=settings.fetch_limit_devto, settings=settings),
         fetch_arxiv_ai(limit=settings.fetch_limit_arxiv, settings=settings),
         fetch_ai_engineering_feeds(settings=settings),
+        return_exceptions=True,
     )
-    articles = [article for batch in batches for article in batch if article.content]
+    articles = [
+        article
+        for batch in batches
+        if not isinstance(batch, Exception)
+        for article in batch
+        if article.content
+    ]
     return deduplicate_articles(articles)
