@@ -60,6 +60,7 @@ class Settings:
     chunk_size: int
     chunk_overlap: int
     request_timeout: float
+    ask_timeout: float
 
 
 def _compact_headers(headers: dict[str, str | None]) -> dict[str, str]:
@@ -111,4 +112,5 @@ def get_settings() -> Settings:
         chunk_size=int(os.getenv("CHUNK_SIZE", "900")),
         chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "120")),
         request_timeout=float(os.getenv("REQUEST_TIMEOUT", "20")),
+        ask_timeout=float(os.getenv("ASK_TIMEOUT", "180")),
     )

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import httpx
+
 from src.bot.handlers import (
     TELEGRAM_MESSAGE_LIMIT,
     _answer_without_generated_sources,
+    _describe_http_error,
+    _query_timeout,
     _render_answer_messages,
 )
+from src.config import get_settings
 
 
 def test_answer_removes_only_generated_sources() -> None:
@@ -95,3 +100,25 @@ Sources:
     assert "Wrong model-authored" not in rendered
     assert '1. <a href="https://example.com/trusted">Trusted source</a>' in rendered
     assert "**" not in rendered
+
+
+def test_query_timeout_message_does_not_blame_indexing() -> None:
+    request = httpx.Request("POST", "http://localhost:8013/query")
+    error = httpx.ReadTimeout("timed out", request=request)
+
+    message = _describe_http_error(error, operation="query")
+
+    assert message == "The AI response took too long. Please try the question again."
+    assert "index" not in message.lower()
+
+
+def test_query_timeout_is_independent_from_short_http_timeout(monkeypatch) -> None:
+    monkeypatch.setenv("REQUEST_TIMEOUT", "20")
+    monkeypatch.setenv("ASK_TIMEOUT", "180")
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.request_timeout == 20
+    assert _query_timeout(settings) == 180
+    get_settings.cache_clear()

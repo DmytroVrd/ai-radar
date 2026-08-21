@@ -86,6 +86,7 @@ def infer_embedding_dimensions(
         chunk_size=0,
         chunk_overlap=0,
         request_timeout=20,
+        ask_timeout=180,
     )
     embeddings = build_embeddings(probe_settings)
     return len(embeddings.embed_query("dimension probe"))

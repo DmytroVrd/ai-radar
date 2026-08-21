@@ -136,7 +136,7 @@ def _is_admin(message: Message, settings: Settings) -> bool:
     return message.from_user.id in settings.telegram_admin_ids
 
 
-def _describe_http_error(exc: httpx.HTTPError) -> str:
+def _describe_http_error(exc: httpx.HTTPError, *, operation: str = "request") -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         response = exc.response
         try:
@@ -147,12 +147,20 @@ def _describe_http_error(exc: httpx.HTTPError) -> str:
     if isinstance(exc, httpx.ConnectError):
         return "API is not reachable. Start FastAPI first with python main.py."
     if isinstance(exc, httpx.ReadTimeout):
-        return "Request timed out. Indexing can take a few minutes; try again or increase REQUEST_TIMEOUT."
+        if operation == "query":
+            return "The AI response took too long. Please try the question again."
+        return "The request took too long. Please try again."
     return str(exc) or exc.__class__.__name__
+
+
+def _query_timeout(settings: Settings) -> float:
+    """Keep ordinary HTTP calls fast while allowing the RAG model to finish."""
+    return max(settings.request_timeout, settings.ask_timeout)
 
 
 def build_router(settings: Settings) -> Router:
     router = Router()
+    active_query_chats: set[int] = set()
 
     @router.message(CommandStart())
     async def start_handler(message: Message) -> None:
@@ -174,9 +182,16 @@ def build_router(settings: Settings) -> Router:
             await message.answer("Example: /ask What changed in RAG over the last month?")
             return
 
+        chat_id = message.chat.id
+        if chat_id in active_query_chats:
+            await message.answer("Your previous question is still being processed.")
+            return
+
+        active_query_chats.add(chat_id)
         await message.answer("Searching indexed AI articles...")
         try:
-            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            query_timeout = _query_timeout(settings)
+            async with httpx.AsyncClient(timeout=query_timeout) as client:
                 response = await client.post(
                     f"{settings.rag_api_url.rstrip('/')}/query",
                     json={"question": question, "top_k": settings.default_top_k},
@@ -184,8 +199,12 @@ def build_router(settings: Settings) -> Router:
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPError as exc:
-            await message.answer(f"Request failed: {_describe_http_error(exc)}")
+            await message.answer(
+                f"Request failed: {_describe_http_error(exc, operation='query')}"
+            )
             return
+        finally:
+            active_query_chats.discard(chat_id)
 
         rendered_messages = _render_answer_messages(
             str(data.get("answer", "")), data.get("sources", [])
