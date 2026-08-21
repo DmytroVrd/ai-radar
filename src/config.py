@@ -27,6 +27,11 @@ def _int_set_env(name: str) -> frozenset[int]:
     return frozenset(values)
 
 
+def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
+    raw = os.getenv(name, default)
+    return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     openrouter_api_key: str | None
@@ -38,6 +43,7 @@ class Settings:
     qdrant_url: str
     qdrant_collection: str
     chat_model: str
+    chat_fallback_models: tuple[str, ...]
     embedding_model: str
     embedding_dimensions: int | None
     rag_api_url: str
@@ -81,7 +87,11 @@ def get_settings() -> Settings:
         telegram_admin_ids=_int_set_env("TELEGRAM_ADMIN_IDS"),
         qdrant_url=os.getenv("QDRANT_URL", "http://localhost:6333"),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "ai_articles"),
-        chat_model=os.getenv("CHAT_MODEL", "openrouter/free"),
+        chat_model=os.getenv("CHAT_MODEL", "openai/gpt-oss-20b:free"),
+        chat_fallback_models=_csv_env(
+            "CHAT_FALLBACK_MODELS",
+            "google/gemma-4-26b-a4b-it:free,openrouter/free",
+        ),
         embedding_model=os.getenv(
             "EMBEDDING_MODEL",
             "nvidia/llama-nemotron-embed-vl-1b-v2:free",

@@ -163,7 +163,8 @@ Minimum required `.env` values:
 ```env
 OPENROUTER_API_KEY=sk-or-...
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-CHAT_MODEL=openrouter/free
+CHAT_MODEL=openai/gpt-oss-20b:free
+CHAT_FALLBACK_MODELS=google/gemma-4-26b-a4b-it:free,openrouter/free
 EMBEDDING_MODEL=nvidia/llama-nemotron-embed-vl-1b-v2:free
 QDRANT_URL=http://localhost:6333
 TELEGRAM_BOT_TOKEN=

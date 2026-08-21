@@ -9,3 +9,4 @@ qdrant_data/
 dist/
 build/
 *.pyc
+*.log

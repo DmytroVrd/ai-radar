@@ -69,6 +69,7 @@ def infer_embedding_dimensions(
         qdrant_url="",
         qdrant_collection="",
         chat_model="",
+        chat_fallback_models=(),
         embedding_model=embedding_model,
         embedding_dimensions=None,
         rag_api_url="",
