@@ -32,7 +32,7 @@ It is designed for questions like:
 - What are recent trends in agentic AI tooling?
 - Which recent papers mention LLM inference or retrieval infrastructure?
 
-## What It Demonstrates
+## What It Includes
 
 This project is intentionally more than a basic "upload a PDF and ask questions" tutorial.
 
@@ -49,7 +49,7 @@ This project is intentionally more than a basic "upload a PDF and ask questions"
 
 ![AI Radar landing page](docs/screenshots/landing-page.png)
 
-### Query Demo
+### Query Example
 
 ![AI Radar query response](docs/screenshots/query.png)
 
@@ -61,7 +61,7 @@ This project is intentionally more than a basic "upload a PDF and ask questions"
 
 ![AI Radar Telegram bot start](docs/screenshots/bot-start.png)
 
-### Telegram Query Demo
+### Telegram Query Example
 
 ![AI Radar Telegram query response](docs/screenshots/ask.png)
 
@@ -189,7 +189,7 @@ Open:
 - API docs: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
 
-## Basic Demo Flow
+## Basic Workflow
 
 Check that the API can reach Qdrant.
 
@@ -289,7 +289,7 @@ python evals\run_evals.py
 
 - `v0.1.0`: working MVP with ingestion, indexing, hybrid retrieval, reranking, and API query flow.
 - `v0.2.0`: broader AI engineering sources, free RSS ingestion, landing page, and stronger project documentation.
-- `v0.3.0`: screenshots, 10-question RAGAS evaluation, measured metrics, and README demo polish.
+- `v0.3.0`: screenshots, 10-question RAGAS evaluation, measured metrics, and README polish.
 - `v0.4.0`: Telegram bot hardening, auth for expensive commands, and cleaner bot UX.
 - `v1.0.0`: stable project release with screenshots, measured RAGAS results, Telegram bot UX, and admin-only indexing.
 

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import html
+import re
+from urllib.parse import urlparse
+
 import httpx
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
@@ -8,13 +12,122 @@ from aiogram.types import Message
 from src.config import Settings
 
 
+TELEGRAM_MESSAGE_LIMIT = 4096
+SOURCE_LIMIT = 3
+MESSAGE_MARGIN = 96
+
+
+def _answer_without_generated_sources(answer: str) -> str:
+    """Remove only the model-authored source appendix; the API owns citations."""
+    text = answer.replace("\r\n", "\n").replace("\\*", "*")
+    # The API response owns the authoritative source list. Discard any source
+    # section improvised by the model so links and numbering cannot diverge.
+    text = re.split(r"(?im)^\s*(?:sources|references)\s*:\s*$", text, maxsplit=1)[0]
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text or "The indexed sources do not contain enough information to answer this question."
+
+
+def _plain_markdown(text: str) -> str:
+    """Remove Markdown syntax without removing any answer content."""
+    text = re.sub(r"^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r"\1 (\2)", text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"__([^_]+)__", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r"^\s*(?:[-*+]\s*|\d+[.)]\s+)", "• ", text)
+    return text.replace("*", "").replace("__", "")
+
+
+def _format_markdown_line(line: str) -> str:
+    """Render the small Markdown subset produced by chat models as safe HTML."""
+    line = re.sub(r"^\s{0,3}#{1,6}\s*", "", line)
+    line = re.sub(r"^\s*(?:[-*+]\s*|\d+[.)]\s+)", "• ", line)
+    escaped = html.escape(line)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", escaped)
+    escaped = re.sub(r"__([^_]+)__", r"<b>\1</b>", escaped)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", escaped)
+    # Never expose unmatched Markdown controls in Telegram.
+    return escaped.replace("*", "").replace("__", "")
+
+
+def _split_plain_text(text: str, limit: int) -> list[str]:
+    """Split an oversized line into independently escaped, valid HTML pieces."""
+    chunks: list[str] = []
+    remaining = _plain_markdown(text).strip()
+    while remaining:
+        candidate = remaining[:limit]
+        if len(remaining) > limit:
+            boundary = max(candidate.rfind(" "), candidate.rfind(". "))
+            if boundary > limit // 2:
+                candidate = candidate[:boundary]
+        candidate = candidate.strip()
+        if not candidate:
+            candidate = remaining[:limit]
+        chunks.append(html.escape(candidate))
+        remaining = remaining[len(candidate) :].lstrip()
+    return chunks
+
+
+def _answer_chunks(answer: str) -> list[str]:
+    """Create complete HTML messages without truncating the model's answer."""
+    limit = TELEGRAM_MESSAGE_LIMIT - MESSAGE_MARGIN
+    blocks: list[str] = []
+    for line in _answer_without_generated_sources(answer).splitlines():
+        if not line.strip():
+            blocks.append("")
+            continue
+        rendered = _format_markdown_line(line.strip())
+        if len(rendered) <= limit:
+            blocks.append(rendered)
+        else:
+            blocks.extend(_split_plain_text(line, limit))
+
+    messages: list[str] = []
+    current = ""
+    for block in blocks:
+        candidate = f"{current}\n{block}".strip() if current else block
+        if current and len(candidate) > limit:
+            messages.append(current.rstrip())
+            current = block
+        else:
+            current = candidate
+    if current:
+        messages.append(current.rstrip())
+    return messages
+
+
+def _safe_url(value: object) -> str | None:
+    url = str(value or "").strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return url
+
+
 def _render_sources(sources: list[dict[str, str]]) -> str:
     if not sources:
-        return "No sources returned."
-    lines = []
-    for index, source in enumerate(sources[:3], start=1):
-        lines.append(f"{index}. {source['title']}\n{source['url']}")
-    return "\n\n".join(lines)
+        return "<b>Sources</b>\nNo sources returned."
+    lines = ["<b>Sources</b>"]
+    for index, source in enumerate(sources[:SOURCE_LIMIT], start=1):
+        title = html.escape(str(source.get("title") or "Untitled source").strip()[:140])
+        url = _safe_url(source.get("url"))
+        if url:
+            lines.append(f'{index}. <a href="{html.escape(url, quote=True)}">{title}</a>')
+        else:
+            lines.append(f"{index}. {title}")
+    return "\n".join(lines)
+
+
+def _render_answer_messages(answer: str, sources: list[dict[str, str]]) -> list[str]:
+    source_block = _render_sources(sources)
+    messages = _answer_chunks(answer)
+    if messages and len(messages[-1]) + len(source_block) + 2 <= TELEGRAM_MESSAGE_LIMIT:
+        messages[-1] = f"{messages[-1]}\n\n{source_block}"
+    else:
+        messages.append(source_block)
+    return messages
 
 
 def _is_admin(message: Message, settings: Settings) -> bool:
@@ -74,8 +187,11 @@ def build_router(settings: Settings) -> Router:
             await message.answer(f"Request failed: {_describe_http_error(exc)}")
             return
 
-        sources = _render_sources(data.get("sources", []))
-        await message.answer(f"{data['answer']}\n\nSources:\n{sources}")
+        rendered_messages = _render_answer_messages(
+            str(data.get("answer", "")), data.get("sources", [])
+        )
+        for rendered in rendered_messages:
+            await message.answer(rendered, parse_mode="HTML", disable_web_page_preview=True)
 
     @router.message(Command("index"))
     async def index_handler(message: Message) -> None:

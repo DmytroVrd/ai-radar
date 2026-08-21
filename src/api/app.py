@@ -263,7 +263,7 @@ async def root(request: Request) -> HTMLResponse:
           AI Radar automatically collects recent AI engineering content from Hacker News, dev.to,
           arXiv, and curated AI blogs, indexes it in Qdrant, and answers questions with source links.
           This project is built to
-          demonstrate a practical RAG pipeline: ingestion, hybrid retrieval, reranking, and cited answers.
+          show a practical RAG pipeline: ingestion, hybrid retrieval, reranking, and cited answers.
         </p>
         <div class="cta-row">
           <a class="button primary" href="/docs">Open API Docs</a>
@@ -310,7 +310,7 @@ async def root(request: Request) -> HTMLResponse:
       <article class="card panel">
         <h2>How To Try It</h2>
         <p class="muted">
-          The fastest demo flow is simple: index articles once, then ask a question through the API docs.
+          The fastest workflow is simple: index articles once, then ask a question through the API docs.
         </p>
         <ul>
           <li>Open <code>/docs</code></li>
